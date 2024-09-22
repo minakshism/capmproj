@@ -1,0 +1,140 @@
+_schema-version: 3.3.0
+ID: capmproj
+description: A simple CAP project.
+version: 1.0.0
+modules:
+- name: capmproj-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  - name: capmproj-db
+  - name: uaa_capmproj
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+    readiness-health-check-http-endpoint: /health
+    readiness-health-check-type: http
+  build-parameters:
+    builder: npm
+- name: capmproj-db-deployer
+  type: hdb
+  path: db
+  requires:
+  - name: capmproj-db
+  parameters:
+    buildpack: nodejs_buildpack
+- name: capmproj-destination-content
+  type: com.sap.application.content
+  requires:
+  - name: capmproj-destination-service
+    parameters:
+      content-target: true
+  - name: capmproj_html_repo_host
+    parameters:
+      service-key:
+        name: capmproj_html_repo_host-key
+  - name: uaa_capmproj
+    parameters:
+      service-key:
+        name: uaa_capmproj-key
+  parameters:
+    content:
+      instance:
+        destinations:
+        - Name: capmproj_capmproj_html_repo_host
+          ServiceInstanceName: capmproj-html5-app-host-service
+          ServiceKeyName: capmproj_html_repo_host-key
+          sap.cloud.service: capmproj
+        - Authentication: OAuth2UserTokenExchange
+          Name: capmproj_uaa_capmproj
+          ServiceInstanceName: capmproj-xsuaa-service
+          ServiceKeyName: uaa_capmproj-key
+          sap.cloud.service: capmproj
+        existing_destinations_policy: ignore
+  build-parameters:
+    no-source: true
+- name: capmproj-app-content
+  type: com.sap.application.content
+  path: .
+  requires:
+  - name: capmproj_html_repo_host
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: resources
+    requires:
+    - artifacts:
+      - purchaseorder.zip
+      name: purchaseorder
+      target-path: resources/
+- name: purchaseorder
+  type: html5
+  path: app/purchaseorder
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: capmproj-db
+  type: com.sap.xs.hdi-container
+  parameters:
+    service: hana
+    service-plan: hdi-shared
+- name: capmproj-destination-service
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: true
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          - Authentication: NoAuthentication
+            HTML5.DynamicDestination: true
+            HTML5.ForwardAuthToken: true
+            Name: capmproj-srv-api
+            ProxyType: Internet
+            Type: HTTP
+            URL: ~{srv-api/srv-url}
+          existing_destinations_policy: update
+      version: 1.0.0
+    service: destination
+    service-name: capmproj-destination-service
+    service-plan: lite
+  requires:
+  - name: srv-api
+- name: capmproj_html_repo_host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-name: capmproj-html5-app-host-service
+    service-plan: app-host
+- name: uaa_capmproj
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      tenant-mode: dedicated
+      xsappname: capmproj-${org}-${space}
+    path: ./xs-security.json
+    service: xsuaa
+    service-name: capmproj-xsuaa-service
+    service-plan: application
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npm ci
+    - npx cds build --production

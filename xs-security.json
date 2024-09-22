@@ -1,0 +1,55 @@
+{
+  "xsappname": "capmproj",
+  "tenant-mode": "dedicated",
+  "description": "Security profile of called application",
+  "scopes": [
+    {
+      "name": "uaa.user",
+      "description": "UAA"
+    },
+    {
+      "name": "$XSAPPNAME.Admin",
+      "description": "Administrator"
+    },
+    {
+      "name": "$XSAPPNAME.Viewer",
+      "description": "Viewer"
+    }
+  ],
+  "role-templates": [
+    {
+      "name": "Token_Exchange",
+      "description": "UAA",
+      "scope-references": [
+        "uaa.user"
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Administrator roles",
+      "scope-references": [
+        "$XSAPPNAME.Admin"
+      ]
+    },
+    {
+      "name": "Viewer",
+      "description": "Viewer roles",
+      "scope-references": [
+        "$XSAPPNAME.Viewer"
+      ]
+    }
+  ],
+  "role-collections" : [
+    {
+      "name" : "app_admin",
+      "description" : "App Administrator",
+      "role-template-references" : ["$XSAPPNAME.Admin"]
+    },
+    {
+      "name" : "app_viewer",
+      "description" : "App Viewer",
+      "role-template-references" : ["$XSAPPNAME.Viewer"]
+    }
+  ],
+  "attributes": []
+}
